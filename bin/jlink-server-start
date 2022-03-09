@@ -1,0 +1,14 @@
+#!/bin/bash -e
+#
+# Start the JLink server and connect to target.  After starting the server,
+# telnet port 19021 should be open with connection to RTT console.
+#
+# You can use Segger RTT client as follows once jlink server has been started
+#  $ JLinkRTTClient
+#
+# The following commands may be useful:
+# r - Reset the target and halt
+# g - Go, run the target
+# qc - Quit and close connection
+
+JLinkExe -autoconnect 1 -device NRF52840_XXAA -speed 4000 -if swd

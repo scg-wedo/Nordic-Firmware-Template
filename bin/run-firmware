@@ -1,0 +1,12 @@
+#!/bin/bash -e
+#
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+cd $SCRIPT_DIR/../app
+make clean && make flash
+cd $SCRIPT_DIR/../
+
+nrfjprog -f NRF52 --reset
+
+# Autoconnect device with JLink via SWD Interface with JTAG speed of 4000 kHz
+JLinkExe -autoconnect 1 -device NRF52840_XXAA -speed 4000 -if swd
