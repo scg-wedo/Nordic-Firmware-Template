@@ -1,11 +1,29 @@
 #!/bin/bash -e
 #
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
+rm -rf $SCRIPT_DIR/../build
+
 cd $SCRIPT_DIR/../app
-make clean && make flash
+make clean && make
+cd $SCRIPT_DIR/../bootloader
+make clean && make
 cd $SCRIPT_DIR/../
 
+mkdir $SCRIPT_DIR/../build
+cp $SCRIPT_DIR/../build_app/ble_app_uart_freertos.hex $SCRIPT_DIR/../build/
+cp $SCRIPT_DIR/../build_bootloader/secure_bootloader_ble.hex $SCRIPT_DIR/../build/
+cp $SCRIPT_DIR/../nrf5-sdk/components/softdevice/s140/hex/s140_nrf52_7.2.0_softdevice.hex $SCRIPT_DIR/../build/
+
+cd $SCRIPT_DIR/../build
+nrfutil settings generate --family NRF52840 --application ble_app_uart_freertos.hex --application-version 0 --bootloader-version 0 --bl-settings-version 2 settings-page.hex
+
+nrfjprog -f NRF52 --recover
+nrfjprog -f NRF52 --program secure_bootloader_ble.hex --verify --sectorerase
+nrfjprog -f NRF52 --program s140_nrf52_7.2.0_softdevice.hex --verify --sectorerase
+nrfjprog -f NRF52 --program ble_app_uart_freertos.hex --verify --sectorerase
+nrfjprog -f NRF52 --program settings-page.hex --verify --sectorerase
 nrfjprog -f NRF52 --reset
 
 # Autoconnect device with JLink via SWD Interface with JTAG speed of 4000 kHz

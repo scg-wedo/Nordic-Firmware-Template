@@ -29,10 +29,17 @@
 
 #include "nrf_log.h"
 
+#include "nrf_dfu_ble_svci_bond_sharing.h"
+#include "nrf_svci_async_function.h"
+#include "nrf_svci_async_handler.h"
+#include "nrf_bootloader_info.h"
+#include "nrf_power.h"
+#include "ble_dfu.h"
+
 #include "ble_support.h"
 
-#define DEVICE_NAME                         "DEVICE-01"                             /**< Name of device. Will be included in the advertising data. */
-#define MANUFACTURER_NAME                   "WEDO-LABS"                             /**< Manufacturer. Will be passed to Device Information Service. */
+#define DEVICE_NAME                         "DEVICE-01"                            /**< Name of device. Will be included in the advertising data. */
+#define MANUFACTURER_NAME                   "SCG DOLABS"                            /**< Manufacturer. Will be passed to Device Information Service. */
 #define NUS_SERVICE_UUID_TYPE               BLE_UUID_TYPE_VENDOR_BEGIN              /**< UUID type for the Nordic UART Service (vendor specific). */
 
 #define APP_BLE_OBSERVER_PRIO               3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
@@ -41,10 +48,10 @@
 #define APP_ADV_INTERVAL                    40                                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 25 ms). */
 #define APP_ADV_DURATION                    0                                       /**< The advertising duration (0 no timeout) in units of 10 milliseconds. */
 
-#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (0.4 seconds). */
-#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)         /**< Maximum acceptable connection interval (0.65 second). */
+#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)         /**< Minimum acceptable connection interval (15ms). */
+#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(60, UNIT_1_25_MS)         /**< Maximum acceptable connection interval (60ms). */
 #define SLAVE_LATENCY                       0                                       /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(5000, UNIT_10_MS)         /**< Connection supervisory time-out (4 seconds). */
+#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(5000, UNIT_10_MS)         /**< Connection supervisory time-out (5 seconds). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY      5000                                    /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY       30000                                   /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
@@ -65,20 +72,26 @@ BLE_BAS_DEF(m_bas);                                                 /**< Battery
 NRF_BLE_GATT_DEF(m_gatt);                                           /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                             /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                 /**< Advertising module instance. */
+static ble_advdata_t m_sp_advdata;
 
 uint16_t m_conn_handle         = BLE_CONN_HANDLE_INVALID;    /**< Handle of the current connection. */
 
-// static uint8_t m_nus_data_receive[BLE_NUS_MAX_DATA_LEN];
+static uint8_t m_nus_data_tx[BLE_NUS_MAX_DATA_LEN];
+static uint16_t m_nus_data_tx_length = 0;
 
-static bool request_weight_data = false;
+static uint8_t m_nus_data_rx[BLE_NUS_MAX_DATA_LEN];
+
 
 static ble_uuid_t m_adv_uuids[] =                                   /**< Universally unique service identifiers. */
 {
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE},
     {BLE_UUID_BATTERY_SERVICE, BLE_UUID_TYPE_BLE},
-    {BLE_UUID_NUS_SERVICE, BLE_UUID_TYPE_BLE},
 };
 
+static ble_uuid_t m_sr_uuids[] =                                   /**< Universally unique service identifiers. */
+{
+    {BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE},
+};
 
 /**@brief Function for handling BLE events.
  *
@@ -188,9 +201,6 @@ static void gap_params_init(void)
                                           strlen(DEVICE_NAME));
     APP_ERROR_CHECK(err_code);
 
-    err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_GENERIC_WEIGHT_SCALE);
-    APP_ERROR_CHECK(err_code);
-
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
 
     gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
@@ -207,6 +217,9 @@ static void gap_params_init(void)
 static void gatt_init(void)
 {
     ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_ble_gatt_att_mtu_periph_set(&m_gatt, NRF_SDH_BLE_GATT_MAX_MTU_SIZE);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -241,6 +254,32 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 }
 
 
+static void advertising_config_get(ble_adv_modes_config_t * p_config)
+{
+    memset(p_config, 0, sizeof(ble_adv_modes_config_t));
+
+    p_config->ble_adv_fast_enabled  = true;
+    p_config->ble_adv_fast_interval = APP_ADV_INTERVAL;
+    p_config->ble_adv_fast_timeout  = APP_ADV_DURATION;
+}
+
+
+static void disconnect(uint16_t conn_handle, void * p_context)
+{
+    UNUSED_PARAMETER(p_context);
+
+    ret_code_t err_code = sd_ble_gap_disconnect(conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    if (err_code != NRF_SUCCESS)
+    {
+        NRF_LOG_WARNING("Failed to disconnect connection. Connection handle: %d Error: %d", conn_handle, err_code);
+    }
+    else
+    {
+        NRF_LOG_DEBUG("Disconnected connection handle %d", conn_handle);
+    }
+}
+
+
 /**@brief Function for initializing the Advertising functionality. */
 static void advertising_init(void)
 {
@@ -250,14 +289,16 @@ static void advertising_init(void)
     memset(&init, 0, sizeof(init));
 
     init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    init.advdata.include_appearance      = true;
+    init.advdata.include_appearance      = false;
     init.advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
+    memcpy(&m_sp_advdata, &init.advdata, sizeof(m_sp_advdata));
 
-    init.config.ble_adv_fast_enabled  = true;
-    init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
-    init.config.ble_adv_fast_timeout  = APP_ADV_DURATION;
+    init.srdata.uuids_complete.uuid_cnt = sizeof(m_sr_uuids) / sizeof(m_sr_uuids[0]);
+    init.srdata.uuids_complete.p_uuids  = m_sr_uuids;
+
+    advertising_config_get(&init.config);
 
     init.evt_handler = on_adv_evt;
 
@@ -281,6 +322,69 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 }
 
 
+/**@brief Function for handling dfu events from the Buttonless Secure DFU service
+ *
+ * @param[in]   event   Event from the Buttonless Secure DFU service.
+ */
+static void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
+{
+    switch (event)
+    {
+        case BLE_DFU_EVT_BOOTLOADER_ENTER_PREPARE:
+        {
+            NRF_LOG_INFO("Device is preparing to enter bootloader mode.");
+
+            // Prevent device from advertising on disconnect.
+            ble_adv_modes_config_t config;
+            advertising_config_get(&config);
+            config.ble_adv_on_disconnect_disabled = true;
+            ble_advertising_modes_config_set(&m_advertising, &config);
+
+            // Disconnect all other bonded devices that currently are connected.
+            // This is required to receive a service changed indication
+            // on bootup after a successful (or aborted) Device Firmware Update.
+            uint32_t conn_count = ble_conn_state_for_each_connected(disconnect, NULL);
+            NRF_LOG_INFO("Disconnected %d links.", conn_count);
+            break;
+        }
+
+        case BLE_DFU_EVT_BOOTLOADER_ENTER:
+            // YOUR_JOB: Write app-specific unwritten data to FLASH, control finalization of this
+            //           by delaying reset by reporting false in app_shutdown_handler
+            NRF_LOG_INFO("Device will enter bootloader mode.");
+            break;
+
+        case BLE_DFU_EVT_BOOTLOADER_ENTER_FAILED:
+            NRF_LOG_ERROR("Request to enter bootloader mode failed asynchroneously.");
+            // YOUR_JOB: Take corrective measures to resolve the issue
+            //           like calling APP_ERROR_CHECK to reset the device.
+            break;
+
+        case BLE_DFU_EVT_RESPONSE_SEND_ERROR:
+            NRF_LOG_ERROR("Request to send a response to client failed.");
+            // YOUR_JOB: Take corrective measures to resolve the issue
+            //           like calling APP_ERROR_CHECK to reset the device.
+            APP_ERROR_CHECK(false);
+            break;
+
+        default:
+            NRF_LOG_ERROR("Unknown event from ble_dfu_buttonless.");
+            break;
+    }
+}
+
+
+/**
+ * @brief Function to be replaced by user implementation if needed.
+ *
+ * Weak function - user can add different implementation of this function if application needs it.
+ */
+__WEAK void application_on_nus_received(ble_nus_evt_t * p_evt)
+{
+
+}
+
+
 /**@brief Function for handling the data from the Nordic UART Service.
  *
  * @details This function will process the data received from the Nordic UART BLE Service and send
@@ -297,6 +401,8 @@ static void nus_data_handler(ble_nus_evt_t * p_evt)
         UNUSED_PARAMETER(p_evt);
     }
 
+    application_on_nus_received(p_evt);
+    UNUSED_VARIABLE(m_nus_data_rx);
 }
 
 
@@ -308,6 +414,7 @@ static void services_init(void)
 {
     ret_code_t         err_code;
     nrf_ble_qwr_init_t qwr_init = {0};
+    ble_dfu_buttonless_init_t dfus_init = {0};
     ble_dis_init_t     dis_init;
     ble_bas_init_t     bas_init;
     ble_nus_init_t     nus_init;
@@ -316,6 +423,23 @@ static void services_init(void)
     qwr_init.error_handler = nrf_qwr_error_handler;
 
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize DFU Buttonless Service.
+    dfus_init.evt_handler = ble_dfu_evt_handler;
+
+    // Initialize the async SVCI interface to bootloader.
+    {
+      // ble_dfu_buttonless_async_svci_init() temporarily modifies the vector
+      // table to check for DFU bootloader presence.  Ensure interrupts do not
+      // go missing during this check (eg FreeRTOS scheduler ticks)
+      CRITICAL_REGION_ENTER();
+      err_code = ble_dfu_buttonless_async_svci_init();
+      CRITICAL_REGION_EXIT();
+    }
+    APP_ERROR_CHECK(err_code);
+
+    err_code = ble_dfu_buttonless_init(&dfus_init);
     APP_ERROR_CHECK(err_code);
 
     // Initialize Device Information Service.
@@ -574,13 +698,13 @@ void buttons_leds_init(bool * p_erase_bonds)
 
 void ble_application_init()
 {
-    bool erase_bonds = false;
+    static bool erase_bonds = false;
     // Configure and initialize the BLE stack.
     ble_stack_init();
     gap_params_init();
     gatt_init();
-    advertising_init();
     services_init();
+    advertising_init();
     conn_params_init();
     peer_manager_init();
     conn_evt_len_ext_set();
@@ -592,22 +716,15 @@ void ble_application_init()
 }
 
 
-ble_bas_t* GetBatteryInstance() {
-    return &m_bas;
-}
-
-
-ble_nus_t* GetNusInstance() {
-    return &m_nus;
-}
-
-
-uint16_t GetConnectionHandler() {
-    return m_conn_handle;
-}
-
-bool IsRequestWeightData() {
-    return request_weight_data;
+void ble_stream_data_nus(uint8_t * data_buffer, uint16_t data_length)
+{
+    if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        m_nus_data_tx_length = data_length;
+        memset(m_nus_data_tx, 0, sizeof(m_nus_data_tx));
+        memcpy(m_nus_data_tx, data_buffer, m_nus_data_tx_length);
+        (void)ble_nus_data_send(&m_nus, (uint8_t *)m_nus_data_tx, &m_nus_data_tx_length, m_conn_handle);
+    }
 }
 
 
@@ -632,6 +749,11 @@ static bool shutdown_handler(nrf_pwr_mgmt_evt_t event)
             break;
         }
 
+        case NRF_PWR_MGMT_EVT_PREPARE_DFU: {
+            NRF_LOG_INFO("Power management wants to reset to DFU mode.");
+            break;
+        }
+
         default:
             break;
     }
@@ -639,3 +761,22 @@ static bool shutdown_handler(nrf_pwr_mgmt_evt_t event)
     return true;
 }
 NRF_PWR_MGMT_HANDLER_REGISTER(shutdown_handler, 1);
+
+
+static void buttonless_dfu_sdh_state_observer(nrf_sdh_state_evt_t state, void * p_context)
+{
+    if (state == NRF_SDH_EVT_STATE_DISABLED)
+    {
+        // Softdevice was disabled before going into reset. Inform bootloader to skip CRC on next boot.
+        nrf_power_gpregret2_set(BOOTLOADER_DFU_SKIP_CRC);
+
+        //Go to system off.
+        nrf_pwr_mgmt_shutdown(NRF_PWR_MGMT_SHUTDOWN_GOTO_SYSOFF);
+    }
+}
+
+/* nrf_sdh state observer. */
+NRF_SDH_STATE_OBSERVER(m_buttonless_dfu_state_obs, 0) =
+{
+    .handler = buttonless_dfu_sdh_state_observer,
+};

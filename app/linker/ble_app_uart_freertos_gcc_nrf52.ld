@@ -5,13 +5,21 @@ GROUP(-lgcc -lc -lnosys)
 
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x27000, LENGTH = 0xd8000
-  EXT_FLASH (rx) : ORIGIN = 0xff000, LENGTH = 0x1000
-  RAM (rwx) :  ORIGIN = 0x20005978, LENGTH = 0x3a688
+  FLASH (rx) : ORIGIN = 0x27000, LENGTH = 0xc9000
+  RAM (rwx) :  ORIGIN = 0x20005978, LENGTH = 0x39600
+  SEGGER_RTT (rwx) :  ORIGIN = 0x2003EF78, LENGTH = 0x1088
+  uicr_bootloader_start_address (r) : ORIGIN = 0x10001014, LENGTH = 0x4
 }
 
 SECTIONS
 {
+  . = ALIGN(4);
+  .uicr_bootloader_start_address :
+  {
+    PROVIDE(__start_uicr_bootloader_start_address = .);
+    KEEP(*(SORT(.uicr_bootloader_start_address*)))
+    PROVIDE(__stop_uicr_bootloader_start_address = .);
+  } > uicr_bootloader_start_address
 }
 
 SECTIONS
@@ -44,6 +52,13 @@ SECTIONS
     KEEP(*(SORT(.log_filter_data*)))
     PROVIDE(__stop_log_filter_data = .);
   } > RAM
+  .segger_rtt (NOLOAD) :
+  {
+      . = ALIGN(4);
+      __segger_rtt_start__ = .;
+      *(.segger_rtt*)
+      __segger_rtt_end__ = .;
+  } > SEGGER_RTT
 
 } INSERT AFTER .data;
 

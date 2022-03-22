@@ -1,0 +1,8 @@
+#!/bin/bash -e
+#
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+nrfjprog -f NRF52 --recover
+nrfjprog -f NRF52 --program $SCRIPT_DIR/../build/firmware.hex --chiperase --verify
+nrfjprog -f NRF52 --reset

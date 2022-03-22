@@ -3,7 +3,7 @@ PARENT_DIRECTORY := $(abspath ${CURDIR}/../ )
 
 PROJECT_NAME     := application
 TARGETS          := ble_app_uart_freertos
-OUTPUT_DIRECTORY := $(PARENT_DIRECTORY)/build
+OUTPUT_DIRECTORY := $(PARENT_DIRECTORY)/build_app
 
 CORES ?= $(shell nproc)
 MAKEFLAGS+="-j $(CORES)"
@@ -71,6 +71,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/bsp/bsp.c \
   $(SDK_ROOT)/components/libraries/bsp/bsp_btn_ble.c \
   $(PROJ_DIR)/main.cpp \
+  $(SDK_ROOT)/components/libraries/bootloader/dfu/nrf_dfu_svci.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c \
   $(SDK_ROOT)/external/segger_rtt/SEGGER_RTT_printf.c \
@@ -93,6 +94,9 @@ SRC_FILES += \
   $(SDK_ROOT)/components/ble/peer_manager/pm_buffer.c \
   $(SDK_ROOT)/components/ble/peer_manager/security_dispatcher.c \
   $(SDK_ROOT)/components/ble/peer_manager/security_manager.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu_bonded.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu_unbonded.c \
   $(SDK_ROOT)/external/utf_converter/utf.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_bas/ble_bas.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_dis/ble_dis.c \
@@ -178,6 +182,8 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/ble/ble_services/ble_lbs \
   $(SDK_ROOT)/components/ble/ble_services/ble_hts \
   $(SDK_ROOT)/components/libraries/crc16 \
+  $(SDK_ROOT)/components/libraries/bootloader/dfu \
+  $(SDK_ROOT)/components/toolchain/cmsis/include \
   $(SDK_ROOT)/components/nfc/t4t_parser/apdu \
   $(SDK_ROOT)/external/freertos/config \
   $(SDK_ROOT)/components/libraries/util \
@@ -225,12 +231,14 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/ble/nrf_ble_qwr \
   $(SDK_ROOT)/components/libraries/gfx \
   $(SDK_ROOT)/components/libraries/button \
+  $(SDK_ROOT)/components/libraries/bootloader \
   $(SDK_ROOT)/modules/nrfx \
   $(SDK_ROOT)/components/libraries/twi_sensor \
   $(SDK_ROOT)/integration/nrfx/legacy \
   $(SDK_ROOT)/components/libraries/usbd \
   $(SDK_ROOT)/components/nfc/ndef/connection_handover/ep_oob_rec \
   $(SDK_ROOT)/external/segger_rtt \
+  $(SDK_ROOT)/components/libraries/bootloader/ble_dfu \
   $(SDK_ROOT)/components/libraries/atomic_fifo \
   $(SDK_ROOT)/components/ble/ble_services/ble_lbs_c \
   $(SDK_ROOT)/components/nfc/ndef/connection_handover/ble_pair_lib \
@@ -246,6 +254,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/libraries/stack_guard \
   $(SDK_ROOT)/components/libraries/log/src \
   $(SDK_ROOT)/components/ble/ble_link_ctx_manager \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu \
   $(PROJ_DIR)/headers \
 
 
@@ -259,11 +268,17 @@ OPT = -O3 -g3
 
 # C flags common to all targets
 CFLAGS += $(OPT)
+CFLAGS += -DBL_SETTINGS_ACCESS_ONLY
 CFLAGS += -DBOARD_CUSTOM
 CFLAGS += -DCONFIG_GPIO_AS_PINRESET
+CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG_NRF
+CFLAGS += -DDEBUG_NRF_USER
 CFLAGS += -DFLOAT_ABI_HARD
 CFLAGS += -DFREERTOS
 CFLAGS += -DNRF52840_XXAA
+CFLAGS += -DNRF_DFU_SVCI_ENABLED
+CFLAGS += -DNRF_DFU_TRANSPORT_BLE=1
 CFLAGS += -DNRF_SD_BLE_API_VERSION=7
 CFLAGS += -DS140
 CFLAGS += -DSOFTDEVICE_PRESENT
@@ -282,11 +297,17 @@ ASMFLAGS += -g3
 ASMFLAGS += -mcpu=cortex-m4
 ASMFLAGS += -mthumb -mabi=aapcs
 ASMFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
+ASMFLAGS += -DBL_SETTINGS_ACCESS_ONLY
 ASMFLAGS += -DBOARD_CUSTOM
 ASMFLAGS += -DCONFIG_GPIO_AS_PINRESET
+ASMFLAGS += -DDEBUG
+ASMFLAGS += -DDEBUG_NRF
+ASMFLAGS += -DDEBUG_NRF_USER
 ASMFLAGS += -DFLOAT_ABI_HARD
 ASMFLAGS += -DFREERTOS
 ASMFLAGS += -DNRF52840_XXAA
+ASMFLAGS += -DNRF_DFU_SVCI_ENABLED
+ASMFLAGS += -DNRF_DFU_TRANSPORT_BLE=1
 ASMFLAGS += -DNRF_SD_BLE_API_VERSION=7
 ASMFLAGS += -DS140
 ASMFLAGS += -DSOFTDEVICE_PRESENT

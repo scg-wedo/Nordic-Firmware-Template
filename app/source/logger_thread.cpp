@@ -28,40 +28,18 @@ static void logger_thread(void * arg)
         vTaskSuspend(NULL); // Suspend myself
     }
 }
-
+#endif //NRF_LOG_ENABLED
 
 void start_logger_thread( void )
 {
+#if NRF_LOG_ENABLED
     // Start execution.
-    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
+    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 512, NULL, 1, &m_logger_thread))
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
-}
-
-
-#if NRF_LOG_DEFERRED
- void log_pending_hook( void )
- {
-     BaseType_t result = pdFAIL;
-
-    if ( __get_IPSR() != 0 )
-    {
-        BaseType_t higherPriorityTaskWoken = pdFALSE;
-        result = xTaskNotifyFromISR( m_logger_thread, 0, eSetValueWithoutOverwrite, &higherPriorityTaskWoken );
-
-        if ( pdFAIL != result )
-        {
-        portYIELD_FROM_ISR( higherPriorityTaskWoken );
-        }
-    }
-    else
-    {
-        UNUSED_RETURN_VALUE(xTaskNotify( m_logger_thread, 0, eSetValueWithoutOverwrite ));
-    }
- }
-#endif //NRF_LOG_DEFERRED
 #endif //NRF_LOG_ENABLED
+}
 
 
 extern "C" void vApplicationIdleHook(void);

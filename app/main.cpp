@@ -37,15 +37,6 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-// Board/nrf6310/ble/ble_app_hrs_rtx/main.c
-/**
- *
- * @brief Heart Rate Service Sample Application with RTX main file.
- *
- * This file contains the source code for a sample application using RTX and the
- * Heart Rate service (and also Battery and Device Information services).
- * This application uses the @ref srvlib_conn_params module.
- */
 
 #include <stdint.h>
 #include <string.h>
@@ -53,37 +44,25 @@
 #include "nrf.h"
 #include "app_error.h"
 #include "ble.h"
-#include "nrf_sdh_freertos.h"
 #include "app_timer.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
-#include "semphr.h"
-#include "fds.h"
 
 #include "nrf_log.h"
-
 #include "ble_support.h"
 #include "logger_thread.h"
 #include "platform_init.h"
 
-#define OSTIMER_WAIT_FOR_QUEUE              2                                       /**< Number of ticks to wait for the timer queue to be ready */
-#define CALIBRATE_BUFFER                    10
-#define DATA_MEAS_INTERVAL                  2000                                    /**< Data measurement interval (ms). */
-
-#define WEIGHT_SCALE_CALIBRATION_ADDR_START 0x0ff000
-#define WEIGHT_SCALE_CALIBRATION_ADDR_END   0x100000
-
-// static uint8_t m_nus_data_transmit[BLE_NUS_MAX_DATA_LEN];
-
-static TimerHandle_t m_data_timer;                               /**< Definition of data timer. */
-
-static TaskHandle_t m_main_thread;                   /**< Definition of sensor thread. */
+#define OSTIMER_WAIT_FOR_QUEUE              2
+#define DATA_MEAS_INTERVAL                  pdMS_TO_TICKS(1000)     /**< Data measurement interval (ms). */
+static TimerHandle_t m_data_timer;                                  /**< Definition of data timer. */
+static TaskHandle_t m_main_thread;                                  /**< Definition of sensor thread. */
 
 
-/**@brief Function for handling the Battery measurement timer time-out.
+/**@brief Function for handling the data measurement timer time-out.
  *
- * @details This function will be called each time the battery level measurement timer expires.
+ * @details This function will be called each time the data measurement timer expires.
  *
  * @param[in] xTimer Handler to the timer that called this function.
  *                   You may get identifier given to the function xTimerCreate using pvTimerGetTimerID.
@@ -134,7 +113,7 @@ static void application_timers_start(void)
 
 static void main_thread(void * arg) {
     while (true) {
-        taskYIELD();
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
@@ -151,7 +130,7 @@ int main(void)
     start_logger_thread();
 
     // Start execution.
-    if (pdPASS != xTaskCreate(main_thread, "SENS", 1024, NULL, 2, &m_main_thread))
+    if (pdPASS != xTaskCreate(main_thread, "MAIN", 1024, NULL, 2, &m_main_thread))
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
@@ -161,7 +140,7 @@ int main(void)
     timers_init();
     application_timers_start();
 
-    NRF_LOG_INFO("FreeRTOS example started.");
+    NRF_LOG_INFO("NRF52 FreeRTOS NUS DFU Template");
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
 

@@ -1376,7 +1376,7 @@
 
 
 #ifndef BLE_DFU_ENABLED
-#define BLE_DFU_ENABLED 0
+#define BLE_DFU_ENABLED 1
 #endif
 
 // <q> NRF_DFU_BLE_BUTTONLESS_SUPPORTS_BONDS  - Buttonless DFU supports bonds.
@@ -10364,7 +10364,7 @@
 // <e> NRF_SDH_BLE_LOG_ENABLED - Enable logging in SoftDevice handler (BLE) module.
 //==========================================================
 #ifndef NRF_SDH_BLE_LOG_ENABLED
-#define NRF_SDH_BLE_LOG_ENABLED 0
+#define NRF_SDH_BLE_LOG_ENABLED 1
 #endif
 // <o> NRF_SDH_BLE_LOG_LEVEL  - Default Severity level
 
@@ -11391,9 +11391,10 @@
 // <o> SEGGER_RTT_CONFIG_BUFFER_SIZE_UP - Size of upstream buffer.
 // <i> Note that either @ref NRF_LOG_BACKEND_RTT_OUTPUT_BUFFER_SIZE
 // <i> or this value is actually used. It depends on which one is bigger.
+#define SEGGER_RTT_SECTION              ".segger_rtt"
 
 #ifndef SEGGER_RTT_CONFIG_BUFFER_SIZE_UP
-#define SEGGER_RTT_CONFIG_BUFFER_SIZE_UP 512
+#define SEGGER_RTT_CONFIG_BUFFER_SIZE_UP 4096
 #endif
 
 // <o> SEGGER_RTT_CONFIG_MAX_NUM_UP_BUFFERS - Maximum number of upstream buffers.
@@ -11490,7 +11491,7 @@
 
 // <o> NRF_SDH_BLE_VS_UUID_COUNT - The number of vendor-specific UUIDs.
 #ifndef NRF_SDH_BLE_VS_UUID_COUNT
-#define NRF_SDH_BLE_VS_UUID_COUNT 1
+#define NRF_SDH_BLE_VS_UUID_COUNT 2
 #endif
 
 // <q> NRF_SDH_BLE_SERVICE_CHANGED  - Include the Service Changed characteristic in the Attribute Table.
@@ -12138,4 +12139,3 @@
 
 // <<< end of configuration section >>>
 #endif //SDK_CONFIG_H
-

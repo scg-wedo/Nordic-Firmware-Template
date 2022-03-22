@@ -6,7 +6,7 @@ import logging
 from queue import Queue, Empty
 from pc_ble_driver_py.observers import *
 
-TARGET_DEV_NAME = "DOLABS_SCALE"
+TARGET_DEV_NAME = "DEVICE-01"
 CONNECTIONS = 1
 CFG_TAG = 1
 
