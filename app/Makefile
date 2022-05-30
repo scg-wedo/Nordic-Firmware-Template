@@ -43,10 +43,12 @@ SRC_FILES += \
   $(SDK_ROOT)/components/libraries/fstorage/nrf_fstorage.c \
   $(SDK_ROOT)/components/libraries/fstorage/nrf_fstorage_sd.c \
   $(SDK_ROOT)/components/libraries/memobj/nrf_memobj.c \
+  $(SDK_ROOT)/components/libraries/queue/nrf_queue.c \
   $(SDK_ROOT)/components/libraries/ringbuf/nrf_ringbuf.c \
   $(SDK_ROOT)/components/libraries/experimental_section_vars/nrf_section_iter.c \
   $(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c \
   $(SDK_ROOT)/components/libraries/sensorsim/sensorsim.c \
+  $(SDK_ROOT)/components/libraries/serial/nrf_serial.c \
   $(SDK_ROOT)/modules/nrfx/mdk/system_nrf52840.c \
   $(SDK_ROOT)/external/freertos/source/croutine.c \
   $(SDK_ROOT)/external/freertos/source/event_groups.c \
@@ -111,6 +113,7 @@ SRC_FILES += \
   $(PROJ_DIR)/source/logger_thread.cpp \
   $(PROJ_DIR)/source/platform_init.cpp \
   $(PROJ_DIR)/source/ble_support.cpp \
+  $(PROJ_DIR)/source/uart.cpp \
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -219,6 +222,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/nfc/ndef/connection_handover/ble_pair_msg \
   $(SDK_ROOT)/components/libraries/usbd/class/audio \
   $(SDK_ROOT)/components/libraries/sensorsim \
+  $(SDK_ROOT)/components/libraries/serial \
   $(SDK_ROOT)/components/nfc/t4t_lib \
   $(SDK_ROOT)/components/ble/peer_manager \
   $(SDK_ROOT)/components/libraries/mem_manager \

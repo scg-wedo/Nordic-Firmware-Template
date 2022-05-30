@@ -53,6 +53,7 @@
 #include "ble_support.h"
 #include "logger_thread.h"
 #include "platform_init.h"
+#include "uart.h"
 
 #define OSTIMER_WAIT_FOR_QUEUE              2
 #define DATA_MEAS_INTERVAL                  pdMS_TO_TICKS(1000)     /**< Data measurement interval (ms). */
@@ -139,6 +140,8 @@ int main(void)
     ble_application_init();
     timers_init();
     application_timers_start();
+
+    uart_initialise();
 
     NRF_LOG_INFO("NRF52 FreeRTOS NUS DFU Template");
     // Start FreeRTOS scheduler.
